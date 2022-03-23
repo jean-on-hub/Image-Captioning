@@ -124,3 +124,36 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+from tensorflow import keras
+import numpy as np
+from keras import backend as K
+import tensorflow as tf
+from tensorflow.python.keras.backend import set_session
+
+
+
+def get_session():
+    config = tf.compat.v1.ConfigProto
+    config.gpu_options.allow_growth = True
+    return tf.Session(config=config)
+
+tf.compat.v1.keras.backend.set_session(get_session())
+
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+SESS = tf.Session(config=config)
+print("model loading")
+GRAPH1 = tf.get_default_graph()
+
+set_session(SESS)
+# Load the VGG model
+encoder = tf.keras.models.load_model('interface\view\model\models\encoder')
+decoder = tf.keras.models.load_model('interface\view\model\models\decoder')
+# VGG_MODEL = vgg16.VGG16(weights="imagenet")
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = 'media/'
