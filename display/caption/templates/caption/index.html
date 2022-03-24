@@ -1,0 +1,23 @@
+ {% extends "caption/base.html" %} 
+ {% load static %}
+{% block head %}
+<link rel="stylesheet" href="{% static 'caption/style.css' %}">
+{% endblock %}
+{%block content%}
+
+<center>
+	
+<h1 >Image captionner</h1>
+<h3> Give me an image and i will give you a cool caption</h3>
+
+<br>
+<br>
+
+<form action="{{'caption/after'}}" method='POST' enctype='multipart/form-data' > {% csrf_token %}
+
+    <input type="file" name='file1'>
+<input type="submit" name="btn" value='predict caption' class='btn btn-warning'> 
+</form>
+</center>
+
+{%endblock%}
