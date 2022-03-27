@@ -8,6 +8,91 @@ import os
 import time
 import json
 from PIL import Image
+# annotation_folder = '/annotations/'
+# if not os.path.exists(os.path.abspath('.') + annotation_folder):
+#   annotation_zip = tf.keras.utils.get_file('captions.zip',
+#                                            cache_subdir=os.path.abspath('.'),
+#                                            origin='http://images.cocodataset.org/annotations/annotations_trainval2014.zip',
+#                                            extract=True)
+#   annotation_file = os.path.dirname(annotation_zip)+'/annotations/captions_train2014.json'
+#   os.remove(annotation_zip)
+# image_folder = '/train2014/'
+# if not os.path.exists(os.path.abspath('.') + image_folder):
+#   image_zip = tf.keras.utils.get_file('train2014.zip',
+#                                       cache_subdir=os.path.abspath('.'),
+#                                       origin='http://images.cocodataset.org/zips/train2014.zip',
+#                                       extract=True)
+#   PATH = os.path.dirname(image_zip) + image_folder
+#   os.remove(image_zip)
+# else:
+#   PATH = os.path.abspath('.') + image_folder
+# image_path_to_caption = collections.defaultdict(list)
+# from pathlib import Path
+# annotation_file =Path('annotations/captions_train2014.json')
+# with open(annotation_file, 'r') as f:
+#     annotations = json.load(f)
+# for val in annotations['annotations']:
+#   caption = f"<start> {val['caption']} <end>"
+#   image_path = PATH + '/COCO_train2014_' + '%012d.jpg' % (val['image_id'])
+#   image_path_to_caption[image_path].append(caption)
+
+
+train_captions = []
+# img_name_vector = []
+
+
+# for image_path in image_paths:
+#   caption_list = image_path_to_caption[image_path]
+#   train_captions.extend(caption_list)
+#   img_name_vector.extend([image_path] * len(caption_list))
+# BATCH_SIZE = 64
+# BUFFER_SIZE = 1000
+caption_dataset = tf.data.Dataset.from_tensor_slices(train_captions)
+embedding_dim = 256
+units = 512
+# Max word count for a caption.
+max_length = 50
+def standardize(inputs):
+  inputs = tf.strings.lower(inputs)
+  return tf.strings.regex_replace(inputs,
+                                  r"!\"#$%&\(\)\*\+.,-/:;=?@\[\\\]^_`{|}~", "")
+vocabulary_size = None
+tokenizer = tf.keras.layers.TextVectorization(
+    max_tokens=vocabulary_size,
+    standardize=standardize,
+    output_sequence_length=max_length)
+# Learn the vocabulary from the caption data.
+tokenizer.adapt(caption_dataset)
+# num_steps = len(img_name_train) // BATCH_SIZE
+features_shape = 2048
+attention_features_shape = 64
+optimizer = tf.keras.optimizers.Adam()
+loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
+    from_logits=True, reduction='none')
+
+
+def loss_function(real, pred):
+  mask = tf.math.logical_not(tf.math.equal(real, 0))
+  loss_ = loss_object(real, pred)
+
+  mask = tf.cast(mask, dtype=loss_.dtype)
+  loss_ *= mask
+
+
+  return tf.reduce_mean(loss_)
+
+class CNN_Encode(tf.keras.Model):
+    # Since you have already extracted the features and dumped it
+    # This encoder passes those features through a Fully connected layer
+    def __init__(self, embedding_dim):
+        super(CNN_Encoder, self).__init__()
+        # shape after fc == (batch_size, 64, embedding_dim)
+        self.fc = tf.keras.layers.Dense(embedding_dim)
+
+    def call(self, x):
+        x = self.fc(x)
+        x = tf.nn.relu(x)
+        return x
 class BahdanauAttention(tf.keras.Model):
   def __init__(self, units):
     super(BahdanauAttention, self).__init__()
@@ -38,10 +123,60 @@ class BahdanauAttention(tf.keras.Model):
     context_vector = tf.reduce_sum(context_vector, axis=1)
 
     return context_vector, attention_weights
+
+class RNN_Decode(tf.keras.Model):
+    def __init__(self, embedding_dim, units, vocab_size):
+        super(RNN_Decoder, self).__init__()
+        self.units = units
+
+        self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
+        self.gru = tf.keras.layers.GRU(self.units,
+                                    return_sequences=True,
+                                    return_state=True,
+                                    recurrent_initializer='glorot_uniform')
+        self.fc1 = tf.keras.layers.Dense(self.units)
+        self.fc2 = tf.keras.layers.Dense(vocab_size)
+
+        self.attention = BahdanauAttention(self.units)
+
+    def call(self, x, features, hidden):
+        # defining attention as a separate model
+        context_vector, attention_weights = self.attention(features, hidden)
+
+        # x shape after passing through embedding == (batch_size, 1, embedding_dim)
+        x = self.embedding(x)
+
+        # x shape after concatenation == (batch_size, 1, embedding_dim + hidden_size)
+        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+
+        # passing the concatenated vector to the GRU
+        output, state = self.gru(x)
+
+        # shape == (batch_size, max_length, hidden_size)
+        x = self.fc1(output)
+
+        # x shape == (batch_size * max_length, hidden_size)
+        x = tf.reshape(x, (-1, x.shape[2]))
+
+        # output shape == (batch_size * max_length, vocab)
+        x = self.fc2(x)
+
+        return x, state, attention_weights
+
+    def reset_state(self, batch_size):
+        return tf.zeros((batch_size, self.units))
+    def __call__(self, shape, dtype=None):
+        return custom_initializer(shape, dtype=dtype)
+from keras.utils.generic_utils import get_custom_objects
 attention_features_shape = 64
 max_length = 50
-encoder = tf.keras.models.load_model("C:/Users/jdalm/Desktop/amalitech projects/image captioning/display/caption/models/encoder")
-decoder = tf.keras.models.load_model("C:/Users/jdalm/Desktop/amalitech projects/image captioning/display/caption/models/decoder")
+# encoder = CNN_Encoder(embedding_dim)
+
+# decoder = RNN_Decoder(embedding_dim, units, tokenizer.vocabulary_size())
+encoder = tf.keras.models.load_model("C:/Users/jdalm/Desktop/amalitech projects/image captioning/display/caption/models/encoder", custom_objects  = {"CustomModel": CNN_Encode})
+
+decoder = tf.keras.models.load_model("C:/Users/jdalm/Desktop/amalitech projects/image captioning/display/caption/models/decoder", custom_objects = {"reset_state": RNN_Decode })
+get_custom_objects().update({'custom_objects': RNN_Decode.reset_state})
 def evaluate(image):
     attention_plot = np.zeros((max_length, attention_features_shape))
 
@@ -79,6 +214,56 @@ def evaluate(image):
     return result, attention_plot
 def plot_attention(image, result, attention_plot):
   temp_image = np.array(Image.open(image))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   fig = plt.figure(figsize=(30, 30))
 
