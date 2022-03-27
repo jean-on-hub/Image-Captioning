@@ -8,14 +8,7 @@ import os
 import time
 import json
 from PIL import Image
-# Create mappings for words to indices and indicies to words.
-word_to_index = tf.keras.layers.StringLookup(
-    mask_token="",
-    vocabulary=tokenizer.get_vocabulary())
-index_to_word = tf.keras.layers.StringLookup(
-    mask_token="",
-    vocabulary=vocabulary,
-    invert=True)
+import pickle
 # annotation_folder = '/annotations/'
 # if not os.path.exists(os.path.abspath('.') + annotation_folder):
 #   annotation_zip = tf.keras.utils.get_file('captions.zip',
@@ -66,6 +59,7 @@ embedding_dim = 256
 units = 512
 # Max word count for a caption.
 max_length = 50
+# from .caption_code import standardize
 def standardize(inputs):
   inputs = tf.strings.lower(inputs)
   return tf.strings.regex_replace(inputs,
@@ -78,6 +72,23 @@ vocabulary_size = 10000
 # Learn the vocabulary from the caption data.
 # tokenizer.adapt(caption_dataset)
 # num_steps = len(img_name_train) // BATCH_SIZE
+tokenizer = tf.keras.layers.TextVectorization(
+    max_tokens=vocabulary_size,
+    standardize=standardize,
+    output_sequence_length=max_length)
+with open("caption/tv_layer.pkl", "rb") as f:
+    from_disk = pickle.load(f)
+
+# tokenizer  = TextVectorization.from_config(from_disk['config'])
+tokenizer.set_weights(from_disk['weights'])
+# Create mappings for words to indices and indicies to words.
+word_to_index = tf.keras.layers.StringLookup(
+    mask_token="",
+    vocabulary=tokenizer.get_vocabulary())
+index_to_word = tf.keras.layers.StringLookup(
+    mask_token="",
+    vocabulary=vocabulary,
+    invert=True)
 features_shape = 2048
 attention_features_shape = 64
 optimizer = tf.keras.optimizers.Adam()
@@ -233,6 +244,8 @@ def evaluate(image):
 
     attention_plot = attention_plot[:len(result), :]
     return result, attention_plot
+
+
 def plot_attention(image, result, attention_plot):
   temp_image = np.array(Image.open(image))
 

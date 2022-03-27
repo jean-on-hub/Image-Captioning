@@ -64,6 +64,7 @@ from django.views.generic import DetailView
 from . import caption_code
 from .forms import ImageForm
 from .models import Image_model
+
 # Create your views here.
 def index(request):
     context = {}

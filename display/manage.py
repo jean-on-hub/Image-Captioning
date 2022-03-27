@@ -3,7 +3,7 @@
 import os
 import sys
 
-
+# from .caption_code import standardize
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'display.settings')
@@ -19,4 +19,5 @@ def main():
 
 
 if __name__ == '__main__':
+    from caption.caption_code import standardize
     main()
