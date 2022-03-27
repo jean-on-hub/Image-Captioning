@@ -8,6 +8,14 @@ import os
 import time
 import json
 from PIL import Image
+# Create mappings for words to indices and indicies to words.
+word_to_index = tf.keras.layers.StringLookup(
+    mask_token="",
+    vocabulary=tokenizer.get_vocabulary())
+index_to_word = tf.keras.layers.StringLookup(
+    mask_token="",
+    vocabulary=vocabulary,
+    invert=True)
 # annotation_folder = '/annotations/'
 # if not os.path.exists(os.path.abspath('.') + annotation_folder):
 #   annotation_zip = tf.keras.utils.get_file('captions.zip',
@@ -36,7 +44,13 @@ from PIL import Image
 #   image_path = PATH + '/COCO_train2014_' + '%012d.jpg' % (val['image_id'])
 #   image_path_to_caption[image_path].append(caption)
 
+image_model = tf.keras.applications.InceptionV3(include_top=False,
+                                                weights='imagenet')
+new_input = image_model.input
+hidden_layer = image_model.layers[-1].output
 
+model = tf.keras.Model(new_input, hidden_layer)
+model = tf.keras.models.clone_model(model)
 train_captions = []
 # img_name_vector = []
 
@@ -47,7 +61,7 @@ train_captions = []
 #   img_name_vector.extend([image_path] * len(caption_list))
 # BATCH_SIZE = 64
 # BUFFER_SIZE = 1000
-caption_dataset = tf.data.Dataset.from_tensor_slices(train_captions)
+# caption_dataset = tf.data.Dataset.from_tensor_slices(train_captions)
 embedding_dim = 256
 units = 512
 # Max word count for a caption.
@@ -56,13 +70,13 @@ def standardize(inputs):
   inputs = tf.strings.lower(inputs)
   return tf.strings.regex_replace(inputs,
                                   r"!\"#$%&\(\)\*\+.,-/:;=?@\[\\\]^_`{|}~", "")
-vocabulary_size = None
-tokenizer = tf.keras.layers.TextVectorization(
-    max_tokens=vocabulary_size,
-    standardize=standardize,
-    output_sequence_length=max_length)
+vocabulary_size = 10000
+# tokenizer = tf.keras.layers.TextVectorization(
+#     max_tokens=vocabulary_size,
+#     standardize=standardize,
+#     output_sequence_length=max_length)
 # Learn the vocabulary from the caption data.
-tokenizer.adapt(caption_dataset)
+# tokenizer.adapt(caption_dataset)
 # num_steps = len(img_name_train) // BATCH_SIZE
 features_shape = 2048
 attention_features_shape = 64
@@ -81,7 +95,7 @@ def loss_function(real, pred):
 
   return tf.reduce_mean(loss_)
 
-class CNN_Encode(tf.keras.Model):
+class CNN_Encoder(tf.keras.Model):
     # Since you have already extracted the features and dumped it
     # This encoder passes those features through a Fully connected layer
     def __init__(self, embedding_dim):
@@ -124,7 +138,7 @@ class BahdanauAttention(tf.keras.Model):
 
     return context_vector, attention_weights
 
-class RNN_Decode(tf.keras.Model):
+class RNN_Decoder(tf.keras.Model):
     def __init__(self, embedding_dim, units, vocab_size):
         super(RNN_Decoder, self).__init__()
         self.units = units
@@ -170,13 +184,20 @@ class RNN_Decode(tf.keras.Model):
 from keras.utils.generic_utils import get_custom_objects
 attention_features_shape = 64
 max_length = 50
-# encoder = CNN_Encoder(embedding_dim)
 
-# decoder = RNN_Decoder(embedding_dim, units, tokenizer.vocabulary_size())
-encoder = tf.keras.models.load_model("C:/Users/jdalm/Desktop/amalitech projects/image captioning/display/caption/models/encoder", custom_objects  = {"CustomModel": CNN_Encode})
+def load_image(image_path):
+    # img = tf.io.read_file(image_path)
+    # img = tf.io.decode_jpeg(image_path, channels=3)
+    img = tf.keras.layers.Resizing(299, 299)(image_path)
+    img = tf.keras.applications.inception_v3.preprocess_input(img)
+    return img, image_path
+encoder = CNN_Encoder(embedding_dim)
 
-decoder = tf.keras.models.load_model("C:/Users/jdalm/Desktop/amalitech projects/image captioning/display/caption/models/decoder", custom_objects = {"reset_state": RNN_Decode })
-get_custom_objects().update({'custom_objects': RNN_Decode.reset_state})
+decoder = RNN_Decoder(embedding_dim, units, vocabulary_size)
+encoder.load_weights('caption/weights/encoder')
+
+decoder.load_weights('caption/weights/decoder')
+# get_custom_objects().update({'custom_objects': RNN_Decode.reset_state})
 def evaluate(image):
     attention_plot = np.zeros((max_length, attention_features_shape))
 
@@ -214,55 +235,6 @@ def evaluate(image):
     return result, attention_plot
 def plot_attention(image, result, attention_plot):
   temp_image = np.array(Image.open(image))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
   fig = plt.figure(figsize=(30, 30))
