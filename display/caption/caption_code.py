@@ -76,18 +76,24 @@ tokenizer = tf.keras.layers.TextVectorization(
     max_tokens=vocabulary_size,
     standardize=standardize,
     output_sequence_length=max_length)
-with open("caption/tv_layer.pkl", "rb") as f:
-    from_disk = pickle.load(f)
-
+vect = tf.keras.models.Sequential()
+vect.add(tf.keras.Input(shape=(1,), dtype=tf.string))
+vect.add(tokenizer)
+weights = np.load('caption/vectorizer2/vectorizer.npy',allow_pickle=True)    
+# biases = numpy.load()
+vect.layers[0].set_weights(weights)
+# with open("caption/tv_layer.pkl", "rb") as f:
+#     from_disk = pickle.load(f)
+tokenizer = vect.layers[0]
 # tokenizer  = TextVectorization.from_config(from_disk['config'])
-tokenizer.set_weights(from_disk['weights'])
+# tokenizer.set_weights(from_disk['weights'])
 # Create mappings for words to indices and indicies to words.
 word_to_index = tf.keras.layers.StringLookup(
     mask_token="",
     vocabulary=tokenizer.get_vocabulary())
 index_to_word = tf.keras.layers.StringLookup(
     mask_token="",
-    vocabulary=vocabulary,
+    vocabulary=tokenizer.get_vocabulary(),
     invert=True)
 features_shape = 2048
 attention_features_shape = 64
@@ -109,21 +115,29 @@ def loss_function(real, pred):
 class CNN_Encoder(tf.keras.Model):
     # Since you have already extracted the features and dumped it
     # This encoder passes those features through a Fully connected layer
+    
     def __init__(self, embedding_dim):
         super(CNN_Encoder, self).__init__()
         # shape after fc == (batch_size, 64, embedding_dim)
         self.fc = tf.keras.layers.Dense(embedding_dim)
-
+    @tf.function
     def call(self, x):
         x = self.fc(x)
         x = tf.nn.relu(x)
         return x
+    def get_config(self):
+      return {"fc": self.fc}
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 class BahdanauAttention(tf.keras.Model):
   def __init__(self, units):
     super(BahdanauAttention, self).__init__()
     self.W1 = tf.keras.layers.Dense(units)
     self.W2 = tf.keras.layers.Dense(units)
     self.V = tf.keras.layers.Dense(1)
+  
 
   def call(self, features, hidden):
     # features(CNN_encoder output) shape == (batch_size, 64, embedding_dim)
@@ -148,51 +162,61 @@ class BahdanauAttention(tf.keras.Model):
     context_vector = tf.reduce_sum(context_vector, axis=1)
 
     return context_vector, attention_weights
+  def get_config(self):
+      return {"W1": self.W1,"W2": self.W2, "V": self.V}
+  @classmethod
+  def from_config(cls, config):
+    return cls(**config)
 
 class RNN_Decoder(tf.keras.Model):
-    def __init__(self, embedding_dim, units, vocab_size):
-        super(RNN_Decoder, self).__init__()
-        self.units = units
+  def __init__(self, embedding_dim, units, vocab_size):
+    super(RNN_Decoder, self).__init__()
+    self.units = units
 
-        self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
-        self.gru = tf.keras.layers.GRU(self.units,
-                                    return_sequences=True,
-                                    return_state=True,
-                                    recurrent_initializer='glorot_uniform')
-        self.fc1 = tf.keras.layers.Dense(self.units)
-        self.fc2 = tf.keras.layers.Dense(vocab_size)
+    self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
+    self.gru = tf.keras.layers.GRU(self.units,
+                                   return_sequences=True,
+                                   return_state=True,
+                                   recurrent_initializer='glorot_uniform')
+    self.fc1 = tf.keras.layers.Dense(self.units)
+    self.fc2 = tf.keras.layers.Dense(vocab_size)
 
-        self.attention = BahdanauAttention(self.units)
+    self.attention = BahdanauAttention(self.units)
+  @tf.function
+  def call(self, x, features, hidden):
+    # defining attention as a separate model
+    context_vector, attention_weights = self.attention(features, hidden)
 
-    def call(self, x, features, hidden):
-        # defining attention as a separate model
-        context_vector, attention_weights = self.attention(features, hidden)
+    # x shape after passing through embedding == (batch_size, 1, embedding_dim)
+    x = self.embedding(x)
 
-        # x shape after passing through embedding == (batch_size, 1, embedding_dim)
-        x = self.embedding(x)
+    # x shape after concatenation == (batch_size, 1, embedding_dim + hidden_size)
+    x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
-        # x shape after concatenation == (batch_size, 1, embedding_dim + hidden_size)
-        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+    # passing the concatenated vector to the GRU
+    output, state = self.gru(x)
 
-        # passing the concatenated vector to the GRU
-        output, state = self.gru(x)
+    # shape == (batch_size, max_length, hidden_size)
+    x = self.fc1(output)
 
-        # shape == (batch_size, max_length, hidden_size)
-        x = self.fc1(output)
+    # x shape == (batch_size * max_length, hidden_size)
+    x = tf.reshape(x, (-1, x.shape[2]))
 
-        # x shape == (batch_size * max_length, hidden_size)
-        x = tf.reshape(x, (-1, x.shape[2]))
+    # output shape == (batch_size * max_length, vocab)
+    x = self.fc2(x)
 
-        # output shape == (batch_size * max_length, vocab)
-        x = self.fc2(x)
-
-        return x, state, attention_weights
-
-    def reset_state(self, batch_size):
-        return tf.zeros((batch_size, self.units))
-    def __call__(self, shape, dtype=None):
-        return custom_initializer(shape, dtype=dtype)
-from keras.utils.generic_utils import get_custom_objects
+    return x, state, attention_weights
+  
+  def reset_state(self, batch_size):
+    return tf.zeros((batch_size, self.units))
+  
+  def get_config(self):
+      return {"units": self.units, "embedding": self.embedding,"gru": self.gru, 
+              "fc1": self.fc1, "fc2": self.fc2, "attention":self.attention}
+  @classmethod
+  def from_config(cls, config):
+        return cls(**config)
+# from keras.utils.generic_utils import get_custom_objects
 attention_features_shape = 64
 max_length = 50
 
@@ -205,13 +229,14 @@ def load_image(image_path):
 encoder = CNN_Encoder(embedding_dim)
 
 decoder = RNN_Decoder(embedding_dim, units, vocabulary_size)
-encoder.load_weights('caption/weights/encoder')
+encoder.load_weights('caption/weigths2/encoder')
 
-decoder.load_weights('caption/weights/decoder')
+decoder.load_weights('caption/weigths2/decoder')
 # get_custom_objects().update({'custom_objects': RNN_Decode.reset_state})
 def evaluate(image):
     attention_plot = np.zeros((max_length, attention_features_shape))
-
+    # decoder = RNN_Decoder(embedding_dim, units, vocabulary_size)
+    
     hidden = decoder.reset_state(batch_size=1)
 
     temp_input = tf.expand_dims(load_image(image)[0], 0)
@@ -221,10 +246,10 @@ def evaluate(image):
                                                  img_tensor_val.shape[3]))
 
     features = encoder(img_tensor_val)
-
+    decoder.load_weights('caption/weigths2/decoder')
     dec_input = tf.expand_dims([word_to_index('<start>')], 0)
     result = []
-
+    
     for i in range(max_length):
         predictions, hidden, attention_weights = decoder(dec_input,
                                                          features,
@@ -247,7 +272,7 @@ def evaluate(image):
 
 
 def plot_attention(image, result, attention_plot):
-  temp_image = np.array(Image.open(image))
+  temp_image = np.array(image)
 
 
   fig = plt.figure(figsize=(30, 30))
@@ -264,14 +289,17 @@ def plot_attention(image, result, attention_plot):
   plt.tight_layout()
   plt.show()
 def detect(image_url):
-    path = 'image/'
+  ans = {}
+  path = 'image/'
 # image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Felis_silvestris_silvestris_small_gradual_decrease_of_quality.png/300px-Felis_silvestris_silvestris_small_gradual_decrease_of_quality.png'
-    # path = path + image_url
-    # image_extension = image_url[-4:]
-    # image_path = tf.keras.utils.get_file('image'+image_extension,origin=path)
-    img = Image.open(image_url)
-    result, attention_plot = evaluate(img)
-    print('Prediction Caption:', ' '.join(result))
-    plot_attention(img, result, attention_plot)
-    # opening the image
-    Image.open(img)
+  # path = path + image_url
+  # image_extension = image_url[-4:]
+  # image_path = tf.keras.utils.get_file('image'+image_extension,origin=path)
+  img = Image.open(image_url)
+  result, attention_plot = evaluate(img)
+  print('Prediction Caption:', ' '.join(result))
+  # plot_attention(img, result, attention_plot)
+  # opening the image
+  # Image.open(img)
+
+  return(result)

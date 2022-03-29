@@ -4,6 +4,7 @@ from django.db import models
 class Image_model(models.Model):
     name = models.CharField(max_length=50)
     image = models.ImageField(upload_to='image/')
+    caption = models.TextField(default="caption")
     # detected_img = models.ImageField(upload_to='image/',blank=True)
     
     def __str__(self):
