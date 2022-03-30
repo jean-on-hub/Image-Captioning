@@ -43,7 +43,7 @@ new_input = image_model.input
 hidden_layer = image_model.layers[-1].output
 
 model = tf.keras.Model(new_input, hidden_layer)
-model = tf.keras.models.clone_model(model)
+# model = tf.keras.models.clone_model(model)
 train_captions = []
 # img_name_vector = []
 
@@ -246,7 +246,7 @@ def evaluate(image):
                                                  img_tensor_val.shape[3]))
 
     features = encoder(img_tensor_val)
-    decoder.load_weights('caption/weigths2/decoder')
+    # decoder.load_weights('caption/weigths2/decoder')
     dec_input = tf.expand_dims([word_to_index('<start>')], 0)
     result = []
     
@@ -297,7 +297,7 @@ def detect(image_url):
   # image_path = tf.keras.utils.get_file('image'+image_extension,origin=path)
   img = Image.open(image_url)
   result, attention_plot = evaluate(img)
-  print('Prediction Caption:', ' '.join(result))
+  print(result)
   # plot_attention(img, result, attention_plot)
   # opening the image
   # Image.open(img)

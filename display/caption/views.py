@@ -73,6 +73,7 @@ from django.views.generic.edit import FormView
 # # Create your views here.
 from django.http import HttpRequest
 request = HttpRequest()
+from pathlib import Path
 class takeImage(FormView):
     form_class = Image_form
     template_name = 'caption/index.html'
@@ -84,8 +85,10 @@ class takeImage(FormView):
         caption=caption_code.detect(obj)
         caption =' '.join(caption)
         print(caption)
+        path =Path('/image/')
+        
         context['cap'] = caption
-        context['image'] = obj
+        # context['image'] = path + obj.tostring()
         
         print(context)
         return render( request,'caption/after.html', context)

@@ -6,17 +6,22 @@
 {%block content%}
 
 <center>
-	
-<h1 >Image captionner</h1>
-<h3> Give me an image and i will give you a cool caption</h3>
+<div class="title">	
+<h1  >Image captioning site</h1>
+</div>
+<div class="minor">
+<h4> Give me an image and i will give you a cool caption</h4>
+</div>
 
 <br>
 <br>
 
 <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
+    <div class="form">
     {{ form.as_p }}
-    <input type="submit" value="Submit">
+    </div>
+    <input class="form-control-submit" type="submit" value="Submit">
 </form>
 
 {%endblock%}
