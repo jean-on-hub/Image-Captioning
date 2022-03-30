@@ -15,9 +15,11 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+print(BASE_DIR)
 import os
-STATIC_URL = 'static/'
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'), ) 
+STATIC_URL = 'caption/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR/ 'caption/static/'), ]
+# '/display/media'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/' 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -26,7 +28,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-2&x(zraw7a#g%ctmyhn!w4rqgu@-qxi3*c-d$ow-nh#%^037r4'
+# SECRET_KEY = 'django-insecure-2&x(zraw7a#g%ctmyhn!w4rqgu@-qxi3*c-d$ow-nh#%^037r4'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -128,3 +130,5 @@ USE_TZ = True
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
+import django_heroku
+django_heroku.settings(locals())
