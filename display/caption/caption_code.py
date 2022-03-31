@@ -296,6 +296,7 @@ def detect(image_url):
   # image_extension = image_url[-4:]
   # image_path = tf.keras.utils.get_file('image'+image_extension,origin=path)
   img = Image.open(image_url)
+  # print(type(img))
   result, attention_plot = evaluate(img)
   print(result)
   # plot_attention(img, result, attention_plot)

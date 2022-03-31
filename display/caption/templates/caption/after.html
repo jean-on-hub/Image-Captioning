@@ -2,18 +2,22 @@
  
 {%block content%}
 {% load static %}
-<center>
+
+
 	
 	<!-- <h1 class='display-2'>Predicted Caption </h1> -->
 
 	<br>
 	<h2>Caption: {{ cap }}</h2>
-	<img src="{% static '{{image}}'%}" alt="image" height=340px width="340px">
+	<div class="img">
+		<img src="../../static/caption/image.png"  >
+	</div>
+	
 	
 
 <br>
 
 
-</center>
+
 
 {% endblock %}
