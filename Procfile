@@ -1,2 +1,2 @@
-web: python manage.py runserver $PORT
-
+web: gunicorn display.wsgi
+web: gunicorn caption:app
