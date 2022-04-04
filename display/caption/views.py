@@ -3,14 +3,8 @@ from django.shortcuts import render
 
 
 
-import os
-from django.http import HttpResponseRedirect,HttpResponse
-from django.urls import reverse_lazy
-from django.views.generic import TemplateView
 from caption.forms import Image_form
 from django import forms
-
-
 
 from . import caption_code
 
@@ -27,10 +21,9 @@ class takeImage(FormView):
     template_name = 'caption/index.html'
     def form_valid(self, form):
         context ={}
-        # form.save()
+        
         obj = form.cleaned_data.get('image')
-        # context = self.get_context_data(form = form)
-        # print(type(context['form']))
+        
         caption=caption_code.detect(obj.file)
         caption =' '.join(caption)
         print(caption)

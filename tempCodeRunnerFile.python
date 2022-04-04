@@ -1,3 +1,0 @@
-print("employee1 number of hours worked")
-emp1hours =input("number of hours")
-emp1days =input("number of days")

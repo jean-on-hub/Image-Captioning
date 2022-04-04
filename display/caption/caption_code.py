@@ -9,33 +9,7 @@ import time
 import json
 from PIL import Image
 import pickle
-# annotation_folder = '/annotations/'
-# if not os.path.exists(os.path.abspath('.') + annotation_folder):
-#   annotation_zip = tf.keras.utils.get_file('captions.zip',
-#                                            cache_subdir=os.path.abspath('.'),
-#                                            origin='http://images.cocodataset.org/annotations/annotations_trainval2014.zip',
-#                                            extract=True)
-#   annotation_file = os.path.dirname(annotation_zip)+'/annotations/captions_train2014.json'
-#   os.remove(annotation_zip)
-# image_folder = '/train2014/'
-# if not os.path.exists(os.path.abspath('.') + image_folder):
-#   image_zip = tf.keras.utils.get_file('train2014.zip',
-#                                       cache_subdir=os.path.abspath('.'),
-#                                       origin='http://images.cocodataset.org/zips/train2014.zip',
-#                                       extract=True)
-#   PATH = os.path.dirname(image_zip) + image_folder
-#   os.remove(image_zip)
-# else:
-#   PATH = os.path.abspath('.') + image_folder
-# image_path_to_caption = collections.defaultdict(list)
-# from pathlib import Path
-# annotation_file =Path('annotations/captions_train2014.json')
-# with open(annotation_file, 'r') as f:
-#     annotations = json.load(f)
-# for val in annotations['annotations']:
-#   caption = f"<start> {val['caption']} <end>"
-#   image_path = PATH + '/COCO_train2014_' + '%012d.jpg' % (val['image_id'])
-#   image_path_to_caption[image_path].append(caption)
+
 
 image_model = tf.keras.applications.InceptionV3(include_top=False,
                                                 weights='imagenet')
@@ -43,35 +17,19 @@ new_input = image_model.input
 hidden_layer = image_model.layers[-1].output
 
 model = tf.keras.Model(new_input, hidden_layer)
-# model = tf.keras.models.clone_model(model)
+
 train_captions = []
-# img_name_vector = []
 
-
-# for image_path in image_paths:
-#   caption_list = image_path_to_caption[image_path]
-#   train_captions.extend(caption_list)
-#   img_name_vector.extend([image_path] * len(caption_list))
-# BATCH_SIZE = 64
-# BUFFER_SIZE = 1000
-# caption_dataset = tf.data.Dataset.from_tensor_slices(train_captions)
 embedding_dim = 256
 units = 512
-# Max word count for a caption.
+
 max_length = 50
-# from .caption_code import standardize
+
 def standardize(inputs):
   inputs = tf.strings.lower(inputs)
   return tf.strings.regex_replace(inputs,
                                   r"!\"#$%&\(\)\*\+.,-/:;=?@\[\\\]^_`{|}~", "")
 vocabulary_size = 10000
-# tokenizer = tf.keras.layers.TextVectorization(
-#     max_tokens=vocabulary_size,
-#     standardize=standardize,
-#     output_sequence_length=max_length)
-# Learn the vocabulary from the caption data.
-# tokenizer.adapt(caption_dataset)
-# num_steps = len(img_name_train) // BATCH_SIZE
 tokenizer = tf.keras.layers.TextVectorization(
     max_tokens=vocabulary_size,
     standardize=standardize,
@@ -80,14 +38,11 @@ vect = tf.keras.models.Sequential()
 vect.add(tf.keras.Input(shape=(1,), dtype=tf.string))
 vect.add(tokenizer)
 weights = np.load('caption/vectorizer2/vectorizer.npy',allow_pickle=True)    
-# biases = numpy.load()
+
 vect.layers[0].set_weights(weights)
-# with open("caption/tv_layer.pkl", "rb") as f:
-#     from_disk = pickle.load(f)
+
 tokenizer = vect.layers[0]
-# tokenizer  = TextVectorization.from_config(from_disk['config'])
-# tokenizer.set_weights(from_disk['weights'])
-# Create mappings for words to indices and indicies to words.
+
 word_to_index = tf.keras.layers.StringLookup(
     mask_token="",
     vocabulary=tokenizer.get_vocabulary())
@@ -113,12 +68,8 @@ def loss_function(real, pred):
   return tf.reduce_mean(loss_)
 
 class CNN_Encoder(tf.keras.Model):
-    # Since you have already extracted the features and dumped it
-    # This encoder passes those features through a Fully connected layer
-    
     def __init__(self, embedding_dim):
         super(CNN_Encoder, self).__init__()
-        # shape after fc == (batch_size, 64, embedding_dim)
         self.fc = tf.keras.layers.Dense(embedding_dim)
     @tf.function
     def call(self, x):
@@ -140,10 +91,6 @@ class BahdanauAttention(tf.keras.Model):
   
 
   def call(self, features, hidden):
-    # features(CNN_encoder output) shape == (batch_size, 64, embedding_dim)
-
-    # hidden shape == (batch_size, hidden_size)
-    # hidden_with_time_axis shape == (batch_size, 1, hidden_size)
     hidden_with_time_axis = tf.expand_dims(hidden, 1)
 
     # attention_hidden_layer shape == (batch_size, 64, units)
@@ -291,16 +238,6 @@ def plot_attention(image, result, attention_plot):
 def detect(image_url):
   ans = {}
   path = 'image/'
-# image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Felis_silvestris_silvestris_small_gradual_decrease_of_quality.png/300px-Felis_silvestris_silvestris_small_gradual_decrease_of_quality.png'
-  # path = path + image_url
-  # image_extension = image_url[-4:]
-  # image_path = tf.keras.utils.get_file('image'+image_extension,origin=path)
   img = Image.open(image_url)
-  # print(type(img))
   result, attention_plot = evaluate(img)
-  print(result)
-  # plot_attention(img, result, attention_plot)
-  # opening the image
-  # Image.open(img)
-
   return(result)
