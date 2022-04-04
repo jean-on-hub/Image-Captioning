@@ -17,7 +17,16 @@
 <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
     <div class="form">
-    {{ form.as_p }}
+    
+    <div class="image-wrapper">
+        <div class="image-icon">
+            <img src="../../static/caption/Icon awesome-file-image.svg" alt="">
+        </div>
+        
+        <div class="image-selector">
+            {{ form.as_p }}
+        </div>
+    </div>
     </div>
     <input class="form-control-submit" type="submit" value="Submit">
 </form>

@@ -37,6 +37,7 @@ class takeImage(FormView):
         path =Path('display/media/image')
         obj = Image.open(obj)
         obj.save("caption/static/caption/image.png")
+        caption = caption[0:-5]
         context['cap'] = caption
         context['image'] = obj
         
