@@ -5,5 +5,5 @@ COCO is a large image dataset designed for object detection, segmentation, perso
 the code and link to download the images and associated captions is in the notebook. 
 the model was inspired by the show, attend and tell paper : Xu, K., Ba, J., Kiros, R., Cho, K., Courville, A., Salakhudinov, R., Zemel, R. &amp; Bengio, Y.. (2015). Show, Attend and Tell: Neural Image Caption Generation with Visual Attention. <i>Proceedings of the 32nd International Conference on Machine Learning</i>, in <i>Proceedings of Machine Learning Research</i> 37:2048-2057 Available from https://proceedings.mlr.press/v37/xuc15.html.
 
-a django app was built to facilate the running and viewing of the project.
+a django app was built to facilate the running and viewing of the project. a simple runserver comand can easily start the program in a django server
 
